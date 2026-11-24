@@ -1,0 +1,216 @@
+To,ga cikakkiyar lambar wasan NEON EXTREME LIVE. Wannan sabon sigar yana da motsi da kansa, makiya masu kai hari, harbi, rayuka, maki, combo da ƙofar GIDA. ⚡
+
+Yadda za ka saka shi: Ka kwafi duk lambar da ke ƙasa, ka koma GitHub, ka manna ta a babban akwatin da ka buɗe.
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>NEON EXTREME LIVE</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#050510;color:white;font-family:Arial;text-align:center;overflow:hidden}
+header{background:#15152e;padding:14px 4px}
+h1{margin:0 0 12px;color:#00efff;font-size:clamp(21px,5vw,30px)}
+#stats{display:flex;justify-content:space-around;font-size:clamp(13px,3.5vw,18px)}
+#message{height:42px;padding:9px 2px;color:#ff36df;font-weight:bold;font-size:20px;background:#080817}
+canvas{display:block;width:100%;height:65vh;background:#070713}
+.controls{background:#050510;padding:10px;display:flex;justify-content:center;gap:12px}
+button{background:#00dfff;border:0;border-radius:14px;padding:16px 20px;color:#0752b9;font-size:17px;font-weight:bold}
+</style>
+</head>
+<body>
+<header>
+<h1>⚡ NEON EXTREME LIVE ⚡</h1>
+<div id="stats">
+<span>SCORE <b id="score">0</b></span>
+<span>LEVEL <b id="level">1</b></span>
+<span>❤️ <b id="lives">3</b></span>
+<span>COMBO <b id="combo">0</b></span>
+</div>
+</header>
+<div id="message">AUTO BATTLE START!</div>
+<canvas id="game" width="390" height="650"></canvas>
+<div class="controls">
+<button onclick="pauseGame()">⏯ PAUSE / PLAY</button>
+<button onclick="restart()">↻ RESTART</button>
+</div>
+<script>
+const c=document.getElementById("game"),ctx=c.getContext("2d");
+const W=390,H=650;
+let score,level,lives,combo,paused,over,frame,player,enemies,bullets,bombs,particles,route,routeIndex,boss;
+const walls=[
+[26,90,145,5],[250,90,115,5],[165,90,5,82],
+[26,190,98,5],[230,190,155,5],[145,190,5,82],
+[26,290,145,5],[220,290,165,5],[195,290,5,85],
+[26,390,125,5],[240,390,145,5],[165,390,5,80],
+[45,485,130,5],[245,485,5,75],[220,560,120,5]
+];
+route=[
+[195,55],[195,135],[105,135],[105,235],
+[280,235],[280,335],[90,335],[90,435],
+[195,435],[195,535],[195,605]
+];
+function msg(t){document.getElementById("message").textContent=t}
+function val(id,n){document.getElementById(id).textContent=n}
+function restart(){
+score=0;level=1;lives=3;combo=0;paused=false;over=false;frame=0;
+player={x:195,y:55,r:12,speed:1.35,inv:0};
+enemies=[];bullets=[];bombs=[];particles=[];routeIndex=0;boss=null;
+for(let i=0;i<4;i++)spawnEnemy();
+msg("⚡ AUTO BATTLE START!");
+updateStats();
+}
+function spawnEnemy(){
+enemies.push({x:25+Math.random()*340,y:100+Math.random()*250,r:12,hp:2,speed:.35+level*.035,fire:60+Math.random()*100});
+}
+function spawnBoss(){
+boss={x:195,y:125,r:27,hp:16,max:16,fire:40};
+msg("🔥 BOSS BATTLE! 🔥");
+}
+function updateStats(){
+val("score",score);val("level",level);val("lives",lives);val("combo",combo);
+}
+function pauseGame(){if(!over){paused=!paused;msg(paused?"⏸ GAME PAUSED":"⚡ BATTLE RESUMED")}}
+function distance(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function fireAt(target){
+let dx=target.x-player.x,dy=target.y-player.y,d=Math.hypot(dx,dy)||1;
+bullets.push({x:player.x,y:player.y,vx:dx/d*6,vy:dy/d*6});
+}
+function addBurst(x,y,color){
+for(let i=0;i<8;i++)particles.push({x,y,vx:(Math.random()-.5)*4,vy:(Math.random()-.5)*4,life:25,color});
+}
+function hitPlayer(){
+if(player.inv>0)return;
+lives--;combo=0;player.inv=100;addBurst(player.x,player.y,"#ff1760");
+msg("⚠️ DANGER! KA RASA RAYUWA!");
+if(lives<=0){over=true;msg("GAME OVER! DANNAN RESTART");}
+updateStats();
+}
+function update(){
+if(paused||over)return;
+frame++;
+// Player follows an automatic route
+let target=route[routeIndex];
+let dx=target[0]-player.x,dy=target[1]-player.y,d=Math.hypot(dx,dy)||1;
+player.x+=dx/d*player.speed;player.y+=dy/d*player.speed;
+if(d<5){routeIndex=(routeIndex+1)%route.length;
+if(routeIndex===route.length-1)msg("🟢 FINAL ESCAPE!");}
+if(player.inv>0)player.inv--;
+// Auto fire at nearest enemy
+let targetEnemy=null,nearest=9999;
+enemies.forEach(e=>{let d=distance(player,e);if(d<nearest){nearest=d;targetEnemy=e}});
+if(boss&&distance(player,boss)<nearest){targetEnemy=boss;nearest=distance(player,boss)}
+if(frame%13===0&&targetEnemy)fireAt(targetEnemy);
+// Enemy movement and shooting
+enemies.forEach(e=>{
+let ex=player.x-e.x,ey=player.y-e.y,dd=Math.hypot(ex,ey)||1;
+e.x+=ex/dd*e.speed;e.y+=ey/dd*e.speed;
+e.fire--;
+if(e.fire<=0){
+bombs.push({x:e.x,y:e.y,vx:ex/dd*1.7,vy:ey/dd*1.7});
+e.fire=100+Math.random()*80;
+}
+if(distance(e,player)<e.r+player.r+2)hitPlayer();
+});
+if(frame%150===0&&enemies.length<8)spawnEnemy();
+// Boss attacks
+if(boss){
+let bx=player.x-boss.x,by=player.y-boss.y,bd=Math.hypot(bx,by)||1;
+boss.x+=Math.sin(frame/30)*.7;
+boss.fire--;
+if(boss.fire<=0){
+for(let a=-1;a<=1;a++)bombs.push({x:boss.x,y:boss.y,vx:bx/bd*2+a*.8,vy:by/bd*2});
+boss.fire=48;
+}
+if(distance(boss,player)<boss.r+player.r)hitPlayer();
+}
+// Move projectiles
+bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy});
+bombs.forEach(b=>{b.x+=b.vx;b.y+=b.vy});
+bullets=bullets.filter(b=>b.x>-10&&b.x<W+10&&b.y>-10&&b.y<H+10);
+bombs=bombs.filter(b=>b.x>-10&&b.x<W+10&&b.y>-10&&b.y<H+10);
+// Player bullets hit enemies
+enemies=enemies.filter(e=>{
+let i=bullets.findIndex(b=>distance(b,e)<e.r+5);
+if(i>=0){
+bullets.splice(i,1);e.hp--;addBurst(e.x,e.y,"#ff245e");
+if(e.hp<=0){score+=10;combo++;if(combo%5===0)msg("🔥 AMAZING COMBO! +50");return false}
+}
+return true;
+});
+if(boss){
+let i=bullets.findIndex(b=>distance(b,boss)<boss.r+5);
+if(i>=0){bullets.splice(i,1);boss.hp--;score+=2;
+if(boss.hp<=0){score+=100;boss=null;level++;msg("🏆 BOSS DEFEATED!");}
+}
+}
+// Enemy bullets hit player
+bombs=bombs.filter(b=>{
+if(distance(b,player)<player.r+5){hitPlayer();return false}
+return true;
+});
+// New level and boss
+if(score>=level*150&&level<20){
+level++;msg("🚀 LEVEL "+level+"!");
+if(level%3===0&&!boss)spawnBoss();
+}
+if(frame%220===0&&player.y>H-100)msg("⚠️ FINAL ESCAPE!");
+particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--});
+particles=particles.filter(p=>p.life>0);
+updateStats();
+}
+function draw(){
+ctx.clearRect(0,0,W,H);
+// Neon grid
+ctx.strokeStyle="#292450";ctx.lineWidth=1;
+for(let x=0;x<W;x+=27){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+for(let y=0;y<H;y+=27){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+// Maze walls
+ctx.strokeStyle="#7b26ff";ctx.lineWidth=4;ctx.shadowColor="#8b26ff";ctx.shadowBlur=9;
+walls.forEach(w=>{ctx.fillStyle="#7b26ff";ctx.fillRect(...w)});
+ctx.shadowBlur=0;
+// Home portal
+ctx.strokeStyle="#00ff80";ctx.lineWidth=6;ctx.shadowColor="#00ff80";ctx.shadowBlur=22;
+ctx.beginPath();ctx.arc(195,610,24,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
+ctx.fillStyle="#00ff80";ctx.font="12px Arial";ctx.fillText("HOME",180,647);
+// Player
+ctx.shadowColor="#00eeff";ctx.shadowBlur=22;ctx.fillStyle="#00eeff";
+if(player.inv===0||Math.floor(frame/5)%2===0){
+ctx.beginPath();ctx.arc(player.x,player.y,player.r,0,7);ctx.fill();
+}
+ctx.shadowBlur=0;
+// Enemies
+enemies.forEach(e=>{
+ctx.shadowColor="#ff1457";ctx.shadowBlur=18;ctx.fillStyle="#ff1457";
+ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,7);ctx.fill();
+});
+if(boss){
+ctx.shadowColor="#ff00dd";ctx.shadowBlur=24;ctx.fillStyle="#ff00dd";
+ctx.beginPath();ctx.arc(boss.x,boss.y,boss.r,0,7);ctx.fill();
+ctx.shadowBlur=0;ctx.fillStyle="white";ctx.fillRect(120,35,150,7);
+ctx.fillStyle="#ff00dd";ctx.fillRect(120,35,150*boss.hp/boss.max,7);
+}
+ctx.shadowBlur=0;
+// Projectiles
+ctx.fillStyle="#00eeff";
+bullets.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,4,0,7);ctx.fill()});
+ctx.fillStyle="#ff315d";
+bombs.forEach(b=>{ctx.beginPath();ctx.arc(b.x,b.y,5,0,7);ctx.fill()});
+// Explosions
+particles.forEach(p=>{ctx.globalAlpha=p.life/25;ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y,4,4)});
+ctx.globalAlpha=1;
+if(paused||over){
+ctx.fillStyle="rgba(0,0,0,.65)";ctx.fillRect(0,0,W,H);
+ctx.fillStyle="#ff36df";ctx.font="bold 25px Arial";ctx.textAlign="center";
+ctx.fillText(over?"GAME OVER":"PAUSED",W/2,H/2);
+ctx.textAlign="left";
+}
+}
+function loop(){update();draw();requestAnimationFrame(loop)}
+restart();loop();
+</script>
+</body>
+</html>
+
